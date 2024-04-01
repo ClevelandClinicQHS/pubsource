@@ -12,24 +12,8 @@ sim_dat <- read_rds(file = "sim_dat.rds") # <- assumes your working directory co
 
 sim_dat |> 
   
-  # Make a redundant weight column
-  add_column(Crude = 1) |>
-  
-  # Normalize the the true OW
-  mutate(
-    Overlap = OW_true / sum(OW_true),
-    .by = treated
-  ) |>
-  
-  # Send weights down the rows
-  pivot_longer(
-    cols = c(Crude, Overlap),
-    names_to = "Type",
-    values_to = "Weight"
-  ) |>
-  
-  # Nest the data
-  nest(.by = c(treated, Type)) |>
+  # Nest the data by treatment
+  nest(.by = treated) |>
   
   # Estimate KM curves
   mutate(
@@ -45,8 +29,7 @@ sim_dat |>
             # Fit the model
             survfit(
               formula = Surv(time, event) ~ 1, 
-              data = .dat, 
-              weights = Weight
+              data = .dat
             ) |>
             
             # Get estimates through 10 years
@@ -70,6 +53,48 @@ sim_dat |>
   # Unnest the model output
   unnest(cols = models) |>
   
+  # Indicate type
+  add_column(Type = "Crude") |>
+  
+  # Bind to get true survival curves
+  bind_rows(
+    sim_dat |>
+      
+      # Keep a couple columns
+      select(
+        `1` = time_treat,
+        `0` = time_control
+      ) |>
+      
+      # Send the counterfacturals down the rows
+      pivot_longer(
+        cols = everything(),
+        names_to = "treated",
+        values_to = "Time",
+        names_transform = list(treated = as.numeric)
+      ) |>
+      
+      # Arrange the data by group
+      group_by(treated) |>
+      arrange(Time, .by_group = TRUE) |>
+      
+      # Compute the cumulative proportion
+      mutate(
+        Time = Time * 10, # To account for adjustment made to the observed data in sim_dat
+        Estimate = 1,
+        Estimate = cumsum(Estimate) / length(Estimate),
+        Estimate = 1 - Estimate,
+        Lower = Estimate,
+        Upper = Estimate
+      ) |>
+      
+      # Filter to 10 years
+      filter(Time <= 10) |>
+      
+      # Indicate group
+      add_column(Type = "True")
+  ) |>
+  
   # Clean up names
   mutate(
     Group = 
@@ -82,7 +107,7 @@ sim_dat |>
     Type = 
       case_when(
         Type == "Crude" ~ "Unadjusted Data",
-        TRUE ~ "Overlap Weighted Data"
+        TRUE ~ "True Treatment Effect"
       ) |>
       factor() |>
       fct_rev()
