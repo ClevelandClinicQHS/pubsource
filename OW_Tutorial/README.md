@@ -37,3 +37,11 @@ Creates a table showing the estimated hazard ratios from a Cox-PH model for the 
 8. [Effects on propensity score](figure6.R)
 
 Creates a plot showing the relationships between the confounders and estimated propensity scores.
+
+9. [Cumulative contribution of patients](figure7.R)
+
+Creates a plot showing the cumulative contribution of patients used in estimation in the unweighted and weighted samples.
+
+10. [Weight contributions by strata](figure8.R)
+
+Creates a plot showing the proportion of weight accounted by treatment group by strata of each confounder in the unweighted, IPTW-adjusted, and OW-adjusted data.

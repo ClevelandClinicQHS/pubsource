@@ -70,7 +70,7 @@ ps_model <-
     formula = treated ~ age + male + ejection_fraction,
     data = sim_dat,
     family = "binomial"
-  ) ##### NEED TO UPDATE EVERYTHING NOW
+  )
 
 # Add scores to data set
 sim_dat$ps_est <- predict(ps_model, type = "response")

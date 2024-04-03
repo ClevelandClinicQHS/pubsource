@@ -33,7 +33,7 @@ sim_dat |>
             ) |>
             
             # Get estimates through 10 years
-            summary(temp_surv, times = seq(0, 10, .25))
+            summary(temp_surv, times = seq(0, 10, .25), extend = TRUE)
           
           # Return the estimates
           tibble(

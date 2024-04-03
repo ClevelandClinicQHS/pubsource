@@ -32,7 +32,9 @@ age_plot <-
       y = ps_est,
       color = Group
     ),
-    alpha = .02
+    alpha = .15,
+    shape = 21,
+    fill = "white"
   ) +
   geom_smooth(
     aes(
@@ -86,7 +88,9 @@ ef_plot <-
       y = ps_est,
       color = Group
     ),
-    alpha = .02
+    alpha = .15,
+    shape = 21,
+    fill = "white"
   ) +
   geom_smooth(
     aes(
