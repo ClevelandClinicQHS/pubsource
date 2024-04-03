@@ -15,8 +15,8 @@ sim_dat |>
   mutate(
     Group = 
       case_when(
-        treated == 1 ~ "Treated",
-        TRUE ~ "Controlled"
+        treated == 1 ~ "Treatment",
+        TRUE ~ "Control"
       ) |>
       factor() |>
       fct_rev(),
@@ -34,11 +34,14 @@ sim_dat |>
   geom_col(
     aes(
       x = Bins,
-      y = ifelse(Group == "Treated", Patients, -Patients),
-      fill = Group
+      y = ifelse(Group == "Treatment", Patients, -Patients),
+      fill = Group,
+      linetype = Group
     ),
-    alpha = .75,
-    width = 1
+    alpha = .5,
+    width = 1,
+    color = "black",
+    linewidth = 1
   ) +
   xlab("Estimated propensity score") +
   scale_y_continuous(

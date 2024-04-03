@@ -25,3 +25,15 @@ Creates a plot showing the estimated IPTW and overlap weight distributions by tr
 5. [Standardized mean differences](figure4.R)
 
 Creates a plot showing the standardized mean differences between treatment groups for the unadjusted, IPTW, and OW data.
+
+6. [Estimated treatment effect](figure5.R)
+
+Creates a plot showing the estimated Kaplan-Meier curves by treatment group for the IPTW and OW adjusted data.
+
+7. [Estimated hazard ratios](table2.R)
+
+Creates a table showing the estimated hazard ratios from a Cox-PH model for the unadjusted, IPTW-adjusted, and OW-adjusted data. Also show the true ATE and ATO.
+
+8. [Effects on propensity score](figure6.R)
+
+Creates a plot showing the relationships between the confounders and estimated propensity scores.

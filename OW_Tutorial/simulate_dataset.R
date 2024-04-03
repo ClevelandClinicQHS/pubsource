@@ -67,10 +67,10 @@ sim_dat <-
 # Use a logistic regression model
 ps_model <-
   glm(
-    formula = treated ~ rms::rcs(age, 3) + male + rms::rcs(ejection_fraction, 3),
+    formula = treated ~ age + male + ejection_fraction,
     data = sim_dat,
     family = "binomial"
-  )
+  ) ##### NEED TO UPDATE EVERYTHING NOW
 
 # Add scores to data set
 sim_dat$ps_est <- predict(ps_model, type = "response")
