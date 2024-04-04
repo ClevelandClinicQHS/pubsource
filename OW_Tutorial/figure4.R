@@ -57,8 +57,8 @@ sim_dat |>
       ) |> 
       fct_reorder(
         .x = SMD,
-        .fun = \(x) max(x)
-      )
+        .fun = \(x) max(abs(x))
+      ) |> fct_rev()
   ) |>
   
   # Make a plot

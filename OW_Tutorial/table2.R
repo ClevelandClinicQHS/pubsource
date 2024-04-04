@@ -90,27 +90,36 @@ sim_dat |>
       map(
         function(.dat) {
           
-          # Fit the model
-          temp_mod <- 
+          # Fit the models
+          temp_mod_cox <- 
             coxph(
               formula = Surv(time, event) ~ factor(treated),
               data = .dat,
               weights = Weight,
               robust = TRUE
             )
-          print(summary(temp_mod))
+          temp_mod_exp <- 
+            survreg(
+              formula = Surv(time, event) ~ factor(treated),
+              data = .dat,
+              weights = Weight,
+              robust = TRUE,
+              dist = "exponential"
+            )
           
-          # Get the estimate
-          temp_est <- temp_mod$coefficients[[1]]
+          # Get the estimates
+          temp_est_cox <- temp_mod_cox$coefficients[[1]]
+          temp_est_exp <- temp_mod_exp$coefficients[[2]]
           
-          # Get the CI
-          temp_ci <- confint(temp_mod)
+          # Get the CIs
+          temp_ci_cox <- confint(temp_mod_cox)
           
           # Return in a data frame
           tibble(
-            Estimate = temp_est,
-            Lower = temp_ci[[1]],
-            Upper = temp_ci[[2]]
+            Estimate = temp_est_cox,
+            Lower = temp_ci_cox[[1]],
+            Upper = temp_ci_cox[[2]],
+            ExpHR = -1*temp_est_exp
           ) 
           
         }

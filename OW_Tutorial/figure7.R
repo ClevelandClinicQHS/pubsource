@@ -50,7 +50,7 @@ sim_dat |>
         TRUE ~ "OW"
       ) |>
       factor() 
-  ) |>
+  ) |> 
   
   # Make a plot
   ggplot(

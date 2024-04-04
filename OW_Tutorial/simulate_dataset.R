@@ -22,10 +22,10 @@ sim_dat <-
     # Add the patient characteristics (observed)
     age = rnorm(n, mean = 73, sd = 6),
     male = rbinom(n, size = 1, prob = 0.68),
-    ejection_fraction = rnorm(n, mean = 51, sd = 13),
+    ejection_fraction = rnorm(n, mean = 51, sd = 6),
     
     # Compute the TRUE propensity score (unobserved)
-    log_odds_ps_true = 0.1*age + 0.7*male - 0.05*ejection_fraction - 5,
+    log_odds_ps_true = 0.1*age + 0.7*male - 0.05*ejection_fraction - 5.75,
     ps_true = 1 / (1 + exp(-log_odds_ps_true)),
     
     # Generate the realized treatment assignment (observed)
@@ -34,28 +34,27 @@ sim_dat <-
     # Compute the TRUE overlap weight for the realized treatment (unobserved)
     OW_true = treated * (1-ps_true) + (1-treated) * ps_true,
     
-    ## Generate the survival time from Weibull distributions
+    ## Generate the survival time from Exponential distributions
     
     # Baseline hazard constant over time (unobserved)
-    lambda = 1*365/0.09,
+    lambda = -log(0.56) / 10, # <-- This is h(t) for the CONTROL group which produces S(10) = 0.56
     
-    # Define TRUE linear predictor (unobserved)
-    phi = 0.30 * age + 0.4 * male - 0.07 * ejection_fraction - 13,
-    scale_treat = lambda * exp(-(phi - 0.4)), # THIS IS THE TRUE CAUSAL TREATMENT EFFECT
-    scale_control = lambda * exp(-phi),
+    # Define the TRUE linear predictor of confounder + treatment effects on the outcome
+    log_lambda_control = log(lambda) + 0.30 * (age - mean(age)) + 0.4 * male - 0.07 * (ejection_fraction - mean(ejection_fraction)),
+    log_lambda_treatment = log_lambda_control + log(0.70), # <- This is the true treatment effect of HR = 0.70 (treatment benefit)
     
     # Generate potential outcomes (survival times) under each treatment scenario (we only (kind-of) observe one of these)
-    time_treat = rweibull(n, shape = 1, scale = scale_treat),
-    time_control = rweibull(n, shape = 1, scale = scale_control),
+    time_treat = rexp(n, rate = exp(log_lambda_treatment)),
+    time_control = rexp(n, rate = exp(log_lambda_control)),
     
     # The ACTUAL event time outcome depends on the treatment ACTUALLY observed for the patient (observed, if not censored)
     actual_event_time = treated * time_treat + (1 - treated) * time_control,
     
     # Generate a random censor time (observed, if before event time)
-    censor_time = runif(n),
+    censor_time = runif(n, min = 0, max = 12),
     
     # Calculate the observed event or censor time (what we'd actually observe; either had the event, or censored first)
-    time = 10 * pmin(actual_event_time, censor_time),
+    time = pmin(actual_event_time, censor_time),
     
     # Calculate the event status (TRUE if event observed, FALSE if censored)
     event = as.numeric(actual_event_time < censor_time)

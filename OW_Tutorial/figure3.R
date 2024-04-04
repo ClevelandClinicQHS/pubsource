@@ -20,7 +20,7 @@ sim_dat |>
   
   # Make weight bins and clean labels
   mutate(
-    Bins = Hmisc::cut2(Weight, cuts = c(seq(0, 1, .1), seq(2, 16, 2))),
+    Bins = Hmisc::cut2(Weight, cuts = c(seq(0, 1, .1), 1.5, 2, 3, 5, 7, 10, 15, 21)),
     Group = 
       case_when(
         treated == 1 ~ "Treatment",

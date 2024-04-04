@@ -25,11 +25,11 @@ plot_dat <-
       ),
     ejection_fraction =
       case_when(
-        ejection_fraction < 40 ~ "<40",
-        ejection_fraction < 50 ~ "[40-50)",
-        ejection_fraction < 60 ~ "[50-60)",
-        ejection_fraction < 70 ~ "[60-70)",
-        TRUE ~ "70+"
+        ejection_fraction < 45 ~ "<45",
+        ejection_fraction < 50 ~ "[45-50)",
+        ejection_fraction < 55 ~ "[50-55)",
+        ejection_fraction < 60 ~ "[55-60)",
+        TRUE ~ "60+"
       ),
     sex = 
       case_when(
@@ -94,7 +94,7 @@ plot_dat <-
     Level = 
       Level |>
       fct_relevel(
-        "<40",
+        "<45",
         "<65",
         "Male"
       )

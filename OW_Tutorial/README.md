@@ -8,7 +8,7 @@
 
 1. [Generate simulated data set](simulate_dataset.R)
 
-Generates the simulated analysis data set for the paper, motivated by this [SAS example](https://www2.stat.duke.edu/~fl35/OW/OW_survival_Demo.sas). Distributions of patient characteristics were informed by [this paper](https://pubmed.ncbi.nlm.nih.gov/22361330/). In our example, male patients who were older with lower ejection fraction were most likely to receive treatment, and were also at high risk of the outcome. Also estimates the propensity scores, inverse probability of treatment weights (IPTW), and overlap weights (OW), and adds them to the data set.
+Generates the simulated survival analysis data set for the article (with motivation from this [SAS example](https://www2.stat.duke.edu/~fl35/OW/OW_survival_Demo.sas)). Distributions of event times and patient characteristics were informed by [this paper](https://pubmed.ncbi.nlm.nih.gov/22361330/). The true event times are assumed to follow an Exponential distribution with a 56% baseline 10-year survival rate for the control group, and the assumed hazard ratio of treatment to control is 0.70. It is also assumed that older, male patients with lower ejection fraction are more likely to receive treatment _and_ are at higher risk of the outcome. Patients are censored at a uniformly random time point between 0 and 12 years of follow-up, if it precedes the event time. We also attach the estimated propensity scores (PS), inverse probability of treatment weights (IPTW), and overlap weights (OW) to the data set.
 
 2. [Crude versus true effect plot](figure1.R)
 

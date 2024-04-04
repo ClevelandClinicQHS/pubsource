@@ -115,7 +115,7 @@ sim_dat |>
   scale_y_continuous(
     name = "Survival Probability (%)",
     labels = scales::percent,
-    limits = c(.7, 1)
+    limits = c(0, 1)
   ) +
   theme(
     panel.background = element_blank(),

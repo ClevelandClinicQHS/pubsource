@@ -33,7 +33,7 @@ sim_dat |>
             ) |>
             
             # Get estimates through 10 years
-            summary(temp_surv, times = seq(0, 10, .25), extend = TRUE)
+            summary(temp_surv, times = seq(0, 10, .25))
           
           # Return the estimates
           tibble(
@@ -80,7 +80,7 @@ sim_dat |>
       
       # Compute the cumulative proportion
       mutate(
-        Time = Time * 10, # To account for adjustment made to the observed data in sim_dat
+        Time = Time, # To account for adjustment made to the observed data in sim_dat
         Estimate = 1,
         Estimate = cumsum(Estimate) / length(Estimate),
         Estimate = 1 - Estimate,
@@ -143,7 +143,7 @@ sim_dat |>
   scale_y_continuous(
     name = "Survival Probability (%)",
     labels = scales::percent,
-    limits = c(.7, 1)
+    limits = c(0, 1)
   ) +
   theme(
     panel.background = element_blank(),
