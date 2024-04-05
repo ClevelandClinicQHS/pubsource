@@ -1,103 +1,136 @@
-# Created: 2024-04-01
+# Created: 2024-04-02
 # Author: Alex Zajichek
 # Project: Overlap weighting tutorial
-# Description: Love plot showing the mean differences in covariates.
+# Description: Weighted Kaplan-Meier curves
 
 # Load packages
 library(tidyverse)
+library(survival)
 
 # Import data set
 sim_dat <- read_rds(file = "sim_dat.rds") # <- assumes your working directory contains the data
 
-sim_dat |>
+sim_dat |> 
   
-  # Add unadjusted weight
-  add_column(Raw = 1) |>
-  
-  # Send down the rows
+  # Send the weights down
   pivot_longer(
-    cols = c(IPTW_est, OW_est, Raw),
-    names_to = "Method",
+    cols = c(IPTW_est, OW_est),
+    names_to = "Type",
     values_to = "Weight"
   ) |>
   
-  # Send the covariates down the rows
-  pivot_longer(
-    cols = c(age, male, ejection_fraction),
-    names_to = "Factor",
-    values_to = "Value"
-  ) |>
+  # Normalize the weights within groups (optional)
+  mutate(
+    Weight = Weight / sum(Weight),
+    .by = c(treated, Type)
+  ) |> 
   
-  # Compute the means
-  summarize(
-    SMD = smd::smd(Value, g = treated, w = Weight, na.rm = TRUE)$estimate,
-    .by = 
-      c(
-        Factor,
-        Method
+  # Nest the data by treatment and weight type
+  nest(.by = c(treated, Type)) |>
+  
+  # Estimate KM curves
+  mutate(
+    models = 
+      data |>
+      
+      # For each data set
+      map(
+        function(.dat) {
+          
+          temp_surv <- 
+            
+            # Fit the model
+            survfit(
+              formula = Surv(time, event) ~ 1, 
+              data = .dat,
+              weights = Weight,
+              robust = TRUE
+            ) |>
+            
+            # Get estimates through 10 years
+            summary(temp_surv, times = seq(0, 10, .25), extend = TRUE)
+          
+          # Return the estimates
+          tibble(
+            Time = temp_surv$time,
+            Estimate = temp_surv$surv,
+            Lower = temp_surv$lower,
+            Upper = temp_surv$upper
+          )
+          
+        }
       )
   ) |>
   
-  # Clean up labels
+  # Remove the raw data
+  select(-data) |>
+  
+  # Unnest the model output
+  unnest(cols = models) |>
+  
+  # Clean up names
   mutate(
-    Sample = 
+    Group = 
       case_when(
-        Method == "IPTW_est" ~ "IPTW",
-        Method == "OW_est" ~ "OW",
-        TRUE ~ "Unadjusted"
+        treated == 1 ~ "Treatment",
+        TRUE ~ "Control"
       ) |>
       factor() |>
-      fct_relevel("Unadjusted", "IPTW", "OW") |>
       fct_rev(),
-    Factor = 
+    Type = 
       case_when(
-        Factor == "age" ~ "Age",
-        Factor == "male" ~ "Sex",
-        Factor == "ejection_fraction" ~ "Ejection fraction"
-      ) |> 
-      fct_reorder(
-        .x = SMD,
-        .fun = \(x) max(abs(x))
-      ) |> fct_rev()
+        Type == "IPTW_est" ~ "IPTW",
+        TRUE ~ "OW"
+      ) |>
+      factor() 
   ) |>
   
   # Make a plot
-  ggplot() + 
-  geom_linerange(
+  ggplot(
     aes(
-      x = Factor,
-      ymin = SMD,
-      ymax = 0,
-      color = Sample,
-      linetype = Sample
-    ),
-    linewidth = 1,
-    position = position_dodge(width = .5)
-  ) +
-  geom_point(
+      x = Time
+    )
+  ) + 
+  geom_line(
     aes(
-      x = Factor,
-      y = SMD,
-      color = Sample,
-      shape = Sample
+      y = Estimate,
+      linetype = Group,
+      color = Group,
     ),
-    size = 5,
-    position = position_dodge(width = .5)
+    linewidth = 1.25
   ) +
-  coord_flip() +
+  geom_ribbon(
+    aes(
+      ymin = Lower,
+      ymax = Upper,
+      fill = Group
+    ),
+    alpha = .15
+  ) +
+  facet_wrap(~Type, nrow = 1) +
+  scale_x_continuous(
+    name = "Years since treatment",
+    labels = function(x) round(x)
+  ) +
+  scale_y_continuous(
+    name = "Survival Probability (%)",
+    labels = scales::percent,
+    limits = c(0, 1)
+  ) +
   theme(
     panel.background = element_blank(),
-    panel.grid.major.x = element_line(color = "gray"),
+    panel.grid.major.y = element_line(color = "gray"),
     legend.position = "top",
     legend.title = element_blank(),
     legend.text = element_text(size = 14),
     axis.title = element_text(size = 14),
     axis.text = element_text(size = 12),
-    axis.title.y = element_blank()
+    strip.background = element_blank(),
+    strip.text = element_text(size = 16, face = "bold")
   ) +
-  ylab("Standardized mean difference") +
-  guides(
-    color = guide_legend(reverse = TRUE),
-    linetype = guide_legend(reverse = TRUE),
-    shape = guide_legend(reverse = T)
+  scale_color_manual(
+    values = c("#041c3b", "#a19337")
+  ) +
+  scale_fill_manual(
+    values = c("#041c3b", "#a19337")
   )

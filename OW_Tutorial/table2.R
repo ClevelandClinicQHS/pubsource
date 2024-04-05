@@ -1,175 +1,172 @@
-# Created: 2024-04-02
+# Created: 2024-04-01
 # Author: Alex Zajichek
 # Project: Overlap weighting tutorial
-# Description: Hazard ratio estimates
+# Description: Love plot and table showing the mean differences in covariates.
 
 # Load packages
 library(tidyverse)
-library(survival)
 
 # Import data set
 sim_dat <- read_rds(file = "sim_dat.rds") # <- assumes your working directory contains the data
 
-sim_dat |> 
+sim_dat |>
   
-  # Indicate crude weight
-  add_column(Unadjusted = 1) |>
+  # Add unadjusted weight
+  add_column(Raw = 1) |>
   
-  # Send weights down the rows
+  # Send down the rows
   pivot_longer(
-    cols = c(Unadjusted, IPTW_est, OW_est),
-    names_to = "Type",
+    cols = c(IPTW_est, OW_est, Raw),
+    names_to = "Method",
     values_to = "Weight"
   ) |>
   
-  # Keep a few columns
-  select(
-    Type,
-    Weight,
-    treated,
-    time,
-    event
+  # Send the covariates down the rows
+  pivot_longer(
+    cols = c(age, male, ejection_fraction),
+    names_to = "Factor",
+    values_to = "Value"
   ) |>
   
-  # Add the observed counterfactuals to get the true ATE/ATO
-  bind_rows(
-    sim_dat |>
-      
-      # Add the weight for ATE
-      add_column(
-        IPTW_true = 1
-      ) |>
-      
-      # Send the true weights down the rows
-      pivot_longer(
-        cols = c(IPTW_true, OW_true),
-        names_to = "Type",
-        values_to = "Weight"
-      ) |>
-      
-      # Send counterfactual event times down the rows
-      pivot_longer(
-        cols = c(time_treat, time_control),
-        names_to = "Treated",
-        values_to = "Time"
-      ) |>
-      
-      # Add some columns
-      mutate(
-        Time = pmin(Time, censor_time),
-        Event = as.numeric(Time < censor_time),
-        Treated = 
-          case_when(
-            Treated == "time_treat" ~ 1,
-            TRUE ~ 0
-          )
-      ) |>
-      
-      # Keep a few columns
-      select(
-        Type,
-        Weight,
-        treated = Treated,
-        time = Time,
-        event = Event
+  # Compute the means
+  summarize(
+    SMD = smd::smd(Value, g = treated, w = Weight, na.rm = TRUE)$estimate,
+    .by = 
+      c(
+        Factor,
+        Method
       )
   ) |>
   
+  # Clean up labels
   mutate(
-    Weight = Weight / sum(Weight),
-    .by = c(Type, treated)
-  ) |>
-  
-  # Nest by type
-  nest(.by = Type) |>
-  
-  # Obtain the HR's
-  mutate(
-    model = 
-      data |>
-      map(
-        function(.dat) {
-          
-          # Fit the models
-          temp_mod_cox <- 
-            coxph(
-              formula = Surv(time, event) ~ factor(treated),
-              data = .dat,
-              weights = Weight,
-              robust = TRUE
-            )
-          temp_mod_exp <- 
-            survreg(
-              formula = Surv(time, event) ~ factor(treated),
-              data = .dat,
-              weights = Weight,
-              robust = TRUE,
-              dist = "exponential"
-            )
-          
-          # Get the estimates
-          temp_est_cox <- temp_mod_cox$coefficients[[1]]
-          temp_est_exp <- temp_mod_exp$coefficients[[2]]
-          
-          # Get the CIs
-          temp_ci_cox <- confint(temp_mod_cox)
-          
-          # Return in a data frame
-          tibble(
-            Estimate = temp_est_cox,
-            Lower = temp_ci_cox[[1]],
-            Upper = temp_ci_cox[[2]],
-            ExpHR = -1*temp_est_exp
-          ) 
-          
-        }
-      )
-  ) |>
-  
-  # Unnest the data
-  select(-data) |>
-  unnest(cols = model) |>
-  
-  # Clean-up
-  mutate(
-    across(
-      -Type,
-      \(x) round(exp(x), 2)
-    ),
-    Summary = 
+    Sample = 
       case_when(
-        str_detect(Type, "_true$") ~ as.character(Estimate),
-        TRUE ~ paste0(Estimate, " (", Lower, ", ", Upper, ")")
-      ),
-    Type = 
-      case_match(
-        Type,
-        "Unadjusted" ~ "Unadjusted",
-        "IPTW_est" ~ "IPTW-adjusted",
-        "OW_est" ~ "OW-adjusted",
-        "IPTW_true" ~ "True ATE",
-        "OW_true" ~ "True ATO"
+        Method == "IPTW_est" ~ "IPTW",
+        Method == "OW_est" ~ "OW",
+        TRUE ~ "Unadjusted"
       ) |>
       factor() |>
-      fct_relevel(
-        "True ATE",
-        "True ATO",
-        "Unadjusted",
-        "IPTW-adjusted",
-        "OW-adjusted"
-      )
-  ) |>
-  arrange(Type) |>
-  select(
-    Type,
-    Summary
+      fct_relevel("Unadjusted", "IPTW", "OW") |>
+      fct_rev(),
+    Factor = 
+      case_when(
+        Factor == "age" ~ "Age",
+        Factor == "male" ~ "Sex",
+        Factor == "ejection_fraction" ~ "Ejection fraction"
+      ) |> 
+      fct_reorder(
+        .x = SMD,
+        .fun = \(x) max(abs(x))
+      ) |> fct_rev()
   ) |>
   
-  # Make a table
-  knitr::kable(
-    format = "html"
-  ) |> 
-  kableExtra::kable_styling(
-    full_width = FALSE,
-    bootstrap_options = c("striped", "responsive")
+  # Make a plot
+  ggplot() + 
+  geom_linerange(
+    aes(
+      x = Factor,
+      ymin = SMD,
+      ymax = 0,
+      color = Sample,
+      linetype = Sample
+    ),
+    linewidth = 1,
+    position = position_dodge(width = .5)
+  ) +
+  geom_point(
+    aes(
+      x = Factor,
+      y = SMD,
+      color = Sample,
+      shape = Sample
+    ),
+    size = 5,
+    position = position_dodge(width = .5)
+  ) +
+  coord_flip() +
+  theme(
+    panel.background = element_blank(),
+    panel.grid.major.x = element_line(color = "gray"),
+    legend.position = "top",
+    legend.title = element_blank(),
+    legend.text = element_text(size = 14),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12),
+    axis.title.y = element_blank()
+  ) +
+  ylab("Standardized mean difference") +
+  guides(
+    color = guide_legend(reverse = TRUE),
+    linetype = guide_legend(reverse = TRUE),
+    shape = guide_legend(reverse = T)
   )
+
+# Make a table
+sim_dat |>
+  
+  # Add unadjusted weight
+  add_column(Raw = 1) |>
+  
+  # Send down the rows
+  pivot_longer(
+    cols = c(IPTW_est, OW_est, Raw),
+    names_to = "Method",
+    values_to = "Weight"
+  ) |>
+  
+  # Send the covariates down the rows
+  pivot_longer(
+    cols = c(age, male, ejection_fraction),
+    names_to = "Factor",
+    values_to = "Value"
+  ) |>
+  
+  # Compute the means
+  summarize(
+    Mean = sum(Value * Weight) / sum(Weight),
+    .by = 
+      c(
+        Factor,
+        Method,
+        treated
+      )
+  ) |>
+  
+  # Clean up labels
+  mutate(
+    Sample = 
+      case_when(
+        Method == "IPTW_est" ~ "IPTW",
+        Method == "OW_est" ~ "OW",
+        TRUE ~ "Unadjusted"
+      ) |>
+      factor() |>
+      fct_relevel("Unadjusted", "IPTW", "OW"),
+    Factor = 
+      case_when(
+        Factor == "age" ~ "Age (years)",
+        Factor == "male" ~ "Male (%)",
+        Factor == "ejection_fraction" ~ "Ejection fraction (%)"
+      ),
+    Group = 
+      case_when(
+        treated == 1 ~ "Treatment",
+        TRUE ~ "Control"
+      ) |>
+      fct_rev(),
+    Mean = case_when(Factor == "Male (%)" ~ 100*Mean, TRUE ~ Mean),
+    Mean = round(Mean, 3)
+  ) |>
+  
+  # Remove some columns
+  select(-Method, -treated) |>
+  
+  # Send over columns
+  cheese::stretch(
+    key = c(Sample, Group),
+    value = Mean 
+  ) |>
+  
+  # Make a graded table
+  cheese::grable(at = -Factor, full_width = FALSE)
