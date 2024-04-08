@@ -12,8 +12,24 @@ sim_dat <- read_rds(file = "sim_dat.rds") # <- assumes your working directory co
 
 sim_dat |> 
   
-  # Nest the data by treatment
-  nest(.by = treated) |>
+  # Indicate null weight
+  add_column(Crude = 1) |>
+  
+  # Send the weights down
+  pivot_longer(
+    cols = c(Crude, IPTW_est, OW_est),
+    names_to = "Type",
+    values_to = "Weight"
+  ) |>
+  
+  # Normalize the weights within groups (optional)
+  mutate(
+    Weight = Weight / sum(Weight),
+    .by = c(treated, Type)
+  ) |> 
+  
+  # Nest the data by treatment and weight type
+  nest(.by = c(treated, Type)) |>
   
   # Estimate KM curves
   mutate(
@@ -29,11 +45,13 @@ sim_dat |>
             # Fit the model
             survfit(
               formula = Surv(time, event) ~ 1, 
-              data = .dat
+              data = .dat,
+              weights = Weight,
+              robust = TRUE
             ) |>
             
             # Get estimates through 10 years
-            summary(temp_surv, times = seq(0, 10, .25))
+            summary(temp_surv, times = seq(0, 10, .25), extend = TRUE)
           
           # Return the estimates
           tibble(
@@ -52,9 +70,6 @@ sim_dat |>
   
   # Unnest the model output
   unnest(cols = models) |>
-  
-  # Indicate type
-  add_column(Type = "Crude") |>
   
   # Bind to get true survival curves
   bind_rows(
@@ -106,11 +121,13 @@ sim_dat |>
       fct_rev(),
     Type = 
       case_when(
-        Type == "Crude" ~ "Unadjusted Data",
-        TRUE ~ "True Treatment Effect"
+        Type == "IPTW_est" ~ "c. IPTW",
+        Type == "OW_est" ~ "d. OW",
+        Type == "Crude" ~ "a. Unadjusted Data",
+        Type == "True" ~ "b. True Treatment Effect" 
       ) |>
-      factor() |>
-      fct_rev()
+      factor()
+    
   ) |>
   
   # Make a plot
@@ -135,7 +152,7 @@ sim_dat |>
     ),
     alpha = .15
   ) +
-  facet_wrap(~Type, nrow = 1) +
+  facet_wrap(~Type, nrow = 2) +
   scale_x_continuous(
     name = "Years since treatment",
     labels = function(x) round(x)
@@ -154,7 +171,7 @@ sim_dat |>
     axis.title = element_text(size = 14),
     axis.text = element_text(size = 12),
     strip.background = element_blank(),
-    strip.text = element_text(size = 16, face = "bold")
+    strip.text = element_text(size = 16, face = "bold", hjust = 0)
   ) +
   scale_color_manual(
     values = c("#041c3b", "#a19337")

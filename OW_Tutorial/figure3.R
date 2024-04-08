@@ -30,8 +30,8 @@ sim_dat |>
       fct_rev(),
     Method = 
       case_when(
-        Method == "IPTW_est" ~ "IPTW",
-        TRUE ~ "OW"
+        Method == "IPTW_est" ~ "a. IPTW",
+        TRUE ~ "b. OW"
       )
   ) |> 
   
@@ -71,7 +71,7 @@ sim_dat |>
     axis.text.x = element_text(size = 8, angle = 45),
     axis.title.x = element_blank(),
     strip.background = element_blank(),
-    strip.text = element_text(size = 16, face = "bold")
+    strip.text = element_text(size = 16, face = "bold", hjust = 0)
   ) +
   scale_color_manual(
     values = c("#041c3b", "#a19337")
