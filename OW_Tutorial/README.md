@@ -18,7 +18,7 @@ Creates a plot showing the distributions of the estimated propensity scores by t
 
 4. [Weighting distributions](figure3.R)
 
-Creates a plot showing the estimated IPTW and overlap weight distributions by treatment group through a mirrored histogram.
+Creates a plot showing the estimated IPTW and overlap weight distributions by treatment group through a mirrored histogram, and a plot showing the cumulative contribution of patients used in estimation in the unweighted and weighted samples.
 
 5. [Standardized mean differences](table2.R)
 
@@ -32,10 +32,6 @@ Creates a table showing the estimated hazard ratios from a Cox-PH model for the 
 
 Creates a plot showing the relationships between the confounders and estimated propensity scores.
 
-8. [Cumulative contribution of patients](figure5.R)
-
-Creates a plot showing the cumulative contribution of patients used in estimation in the unweighted and weighted samples.
-
-9. [Weight contributions by strata](figure6.R)
+9. [Weight contributions by strata](figure5.R)
 
 Creates a plot showing the proportion of weight accounted by treatment group by strata of each confounder in the unweighted, IPTW-adjusted, and OW-adjusted data.
