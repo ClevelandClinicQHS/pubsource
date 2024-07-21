@@ -1,31 +1,66 @@
-# Created: 2024-03-27
+# Created: 2024-07-16
 # Author: Alex Zajichek
 # Project: Overlap weighting tutorial
-# Description: Generates the simulated data set
-# - Motivated by this SAS code: https://www2.stat.duke.edu/~fl35/OW/OW_survival_Demo.sas
-# - Distributions generated according to https://pubmed.ncbi.nlm.nih.gov/22361330/
+# Description: Creates the analysis data set
 
 # Load packages
-library(tibble)
-library(readr)
+library(tidyverse)
 
 # Set the seed for reproducibility
 set.seed(44113322)
 
-# Set the overall sample size
-n <- 5000
+# Set the overall sample size (off + on pump)
+n <- 3424
 
-# Generate the sample with age, sex, and ejection fraction
-sim_dat <- 
+# Generate the sample
+sim_dat <-
   tibble(
     
-    # Add the patient characteristics (observed)
-    age = rnorm(n, mean = 73, sd = 6),
-    male = rbinom(n, size = 1, prob = 0.68),
-    ejection_fraction = rnorm(n, mean = 51, sd = 6),
+    # Add the patient characteristics according to Benedetto et al
+    Age = rnorm(n, 73.5, 7),
+    Female = rbinom(n, 1, .285),
+    NYHA = rbinom(n, 1, .422),
+    MI = rbinom(n, 1, .384),
+    PCI = rbinom(n, 1, .052),
+    IDDM = rbinom(n, 1, .095),
+    Smoking = rbinom(n, 1, .1),
+    Creatine = rbinom(n, 1, .0584),
+    COPD = rbinom(n, 1, .152),
+    CVA = rbinom(n, 1, .069),
+    PVD = rbinom(n, 1, .260),
+    NVD = sample(c(1,2,3), n, replace = TRUE, prob = c(.042, .204, .754)),
+    LMD = rbinom(n, 1, .314),
+    LVEF = rbinom(n, 1, .166),
+    CardiogenicShock = rbinom(n, 1, .026),
+    IABP = rbinom(n, 1, .040),
+    Emergency = rbinom(n, 1, .059),
+    BMI = rnorm(n, 27, 5),
+    YOP = rnorm(n, 2005.48, 5) |> round(),
+    Trainee = rbinom(n, 1, .248),
     
     # Compute the TRUE propensity score (unobserved)
-    log_odds_ps_true = 0.1*age + 0.7*male - 0.05*ejection_fraction - 5.75,
+    log_odds_ps_true = 
+      1.5 * (Age - mean(Age)) / sd(Age) + 
+      .5 * Female +
+      1.25 * NYHA + 
+      1.25 * MI +
+      1.25 * PCI + 
+      1.25 * IDDM + 
+      1.25 * Smoking + 
+      1.25 * Creatine + 
+      1.25 * COPD + 
+      1.25 * CVA + 
+      1.25 * PVD + 
+      .5 * (NVD - mean(NVD)) / sd(NVD) + 
+      1.25 * LMD + 
+      LVEF + 
+      CardiogenicShock + 
+      IABP + 
+      Emergency + 
+      .01 * (BMI - mean(BMI)) / sd(BMI) + 
+      -.05 * (YOP - mean(YOP)) / sd(YOP) + 
+      .5 * Trainee + 
+      -2.7,
     ps_true = 1 / (1 + exp(-log_odds_ps_true)),
     
     # Generate the realized treatment assignment (observed)
@@ -34,40 +69,47 @@ sim_dat <-
     # Compute the TRUE overlap weight for the realized treatment (unobserved)
     OW_true = treated * (1-ps_true) + (1-treated) * ps_true,
     
-    ## Generate the survival time from Exponential distributions
+    # Define the TRUE linear predictor of confounder + treatment effect on the outcome
+    log_odds_outcome_control =
+      .75 * (Age - mean(Age)) / sd(Age) + 
+      .5 * Female +
+      .5 * NYHA + 
+      .5 * MI +
+      PCI + 
+      IDDM + 
+      Smoking + 
+      Creatine + 
+      COPD + 
+      CVA + 
+      PVD + 
+      .5 * (NVD - mean(NVD)) / sd(NVD) + 
+      LMD + 
+      LVEF + 
+      CardiogenicShock + 
+      IABP + 
+      Emergency + 
+      .1 * (BMI - mean(BMI)) / sd(BMI) + 
+      -.05 * (YOP - mean(YOP)) / sd(YOP) + 
+      .5 * Trainee + 
+      -5,
+    log_odds_outcome_treatment = log_odds_outcome_control - 0.25,
     
-    # Baseline hazard constant over time (unobserved)
-    lambda = -log(0.56) / 10, # <-- This is h(t) for the CONTROL group which produces S(10) = 0.56
+    # Generate potential outcomes under each treatment scenario 
+    death_control = rbinom(n, 1, 1 / (1 + exp(-log_odds_outcome_control))),
+    death_treatment = rbinom(n, 1, 1 / (1 + exp(-log_odds_outcome_treatment))),
+      
+    # Identify the observed outcome
+    death = treated * death_treatment + (1 - treated) * death_control
     
-    # Define the TRUE linear predictor of confounder + treatment effects on the outcome
-    log_lambda_control = log(lambda) + 0.30 * (age - mean(age)) + 0.4 * male - 0.07 * (ejection_fraction - mean(ejection_fraction)),
-    log_lambda_treatment = log_lambda_control + log(0.70), # <- This is the true treatment effect of HR = 0.70 (treatment benefit)
-    
-    # Generate potential outcomes (survival times) under each treatment scenario (we only (kind-of) observe one of these)
-    time_treat = rexp(n, rate = exp(log_lambda_treatment)),
-    time_control = rexp(n, rate = exp(log_lambda_control)),
-    
-    # The ACTUAL event time outcome depends on the treatment ACTUALLY observed for the patient (observed, if not censored)
-    actual_event_time = treated * time_treat + (1 - treated) * time_control,
-    
-    # Generate a random censor time (observed, if before event time)
-    censor_time = runif(n, min = 0, max = 12),
-    
-    # Calculate the observed event or censor time (what we'd actually observe; either had the event, or censored first)
-    time = pmin(actual_event_time, censor_time),
-    
-    # Calculate the event status (TRUE if event observed, FALSE if censored)
-    event = as.numeric(actual_event_time < censor_time)
-    
-  ) 
+  )
 
 ## Estimate the propensity scores from the observed data
 
 # Use a logistic regression model
 ps_model <-
   glm(
-    formula = treated ~ age + male + ejection_fraction,
-    data = sim_dat,
+    formula = treated ~ .,
+    data = sim_dat |> select(-c(log_odds_ps_true, ps_true, OW_true, log_odds_outcome_control, log_odds_outcome_treatment, death_control, death_treatment, death)),
     family = "binomial"
   )
 
@@ -80,3 +122,4 @@ sim_dat$OW_est <- with(sim_dat, treated * (1 - ps_est) + (1 - treated) * ps_est)
 
 # Write out data set to current working directory
 sim_dat |> write_rds(file = "sim_dat.rds")
+sim_dat |> write_csv(file = "sim_dat.csv")

@@ -1,7 +1,7 @@
-# Created: 2024-04-01
+# Created: 2024-07-18
 # Author: Alex Zajichek
 # Project: Overlap weighting tutorial
-# Description: Plot the IPTW and OW distributions and accumulations
+# Description: Plot the OR from the PS model
 
 # Load packages
 library(tidyverse)
@@ -9,161 +9,107 @@ library(tidyverse)
 # Import data set
 sim_dat <- read_rds(file = "sim_dat.rds") # <- assumes your working directory contains the data
 
-# Weight distribution
-wt_distribution <-
-  sim_dat |>
-  
-  # Send down the rows
-  pivot_longer(
-    cols = c(IPTW_est, OW_est),
-    names_to = "Method",
-    values_to = "Weight"
+# Fit the PS model
+ps_model <-
+  glm(
+    formula = treated ~ .,
+    data = 
+      sim_dat |> 
+      select(-c(log_odds_ps_true, ps_true, OW_true, log_odds_outcome_control, log_odds_outcome_treatment, death_control, death_treatment, death, ps_est, IPTW_est, OW_est)) |>
+      mutate(
+        across(
+          c(Age, NVD, BMI, YOP),
+          \(x) scale(x)[,1]
+        )
+      ),
+    family = "binomial"
+  )
+
+# Get the 95% CI
+ci <- confint(ps_model)
+
+# Put into a data frame
+ps_model$coefficients |>
+  enframe(
+    name = "Term",
+    value = "Estimate"
   ) |>
   
-  # Make weight bins and clean labels
+  # Remove the intercept
+  filter(Term != "(Intercept)") |>
+  
+  # Join to get the CI
+  inner_join(
+    y = 
+      ci |>
+      
+      # Convert to data frame
+      as_tibble() |>
+      
+      # Add the term names
+      add_column(Term = names(ps_model$coefficients)) |>
+      
+      # Rename the limits
+      rename(
+        Lower = `2.5 %`,
+        Upper = `97.5 %`
+      ),
+    by = "Term"
+  ) |>
+  
+  # Convert to OR
   mutate(
-    Bins = Hmisc::cut2(Weight, cuts = c(seq(0, 1, .1), 1.5, 2, 3, 5, 7, 10, 15, 21)),
+    across(
+      c(Estimate, Lower, Upper),
+      exp
+    ),
+    Term = 
+      case_when(
+        Term == "CardiogenicShock" ~ "Cardiogenic shock",
+        TRUE ~ Term
+      ),
+    Term = factor(Term) |> fct_reorder(Estimate),
     Group = 
       case_when(
-        treated == 1 ~ "Treatment",
-        TRUE ~ "Control"
-      ) |>
-      factor() |>
-      fct_rev(),
-    Method = 
-      case_when(
-        Method == "IPTW_est" ~ "a. IPTW",
-        TRUE ~ "b. OW"
+        Term %in% c("Age", "NVD", "BMI", "YOP") ~ "Per standardized unit increase",
+        TRUE ~ "Binary factor"
       )
-  ) |> 
-  
-  # Compute counts
-  summarize(
-    Patients = n(),
-    .by = c(Group, Method, Bins)
   ) |>
   
   # Make a plot
   ggplot() + 
-  geom_col(
+  geom_point(
     aes(
-      x = Bins,
-      y = ifelse(Group == "Treatment", Patients, -Patients),
-      fill = Group,
-      linetype = Group
-    ),
-    alpha = .5,
-    width = 1,
-    color = "black",
-    linewidth = .75
-  ) +
-  facet_wrap(~Method, nrow = 1, scales = "free_x") +
-  scale_y_continuous(
-    name = "Patient count",
-    labels = abs
-  ) +
-  theme(
-    panel.background = element_blank(),
-    panel.grid.major.y = element_line(color = "gray"),
-    legend.position = "top",
-    legend.title = element_blank(),
-    legend.text = element_text(size = 14),
-    axis.title = element_text(size = 14),
-    axis.text = element_text(size = 12),
-    axis.text.x = element_text(size = 8, angle = 45),
-    axis.title.x = element_blank(),
-    strip.background = element_blank(),
-    strip.text = element_text(size = 16, face = "bold", hjust = 0)
-  ) +
-  scale_color_manual(
-    values = c("#041c3b", "#a19337")
-  ) +
-  scale_fill_manual(
-    values = c("#041c3b", "#a19337")
-  )
-
-# Weight accumulation
-wt_accumulation <-
-  sim_dat |>
-  
-  # Send the weights down the rows
-  pivot_longer(
-    cols = c(IPTW_est, OW_est),
-    names_to = "Type",
-    values_to = "Weight"
-  ) |>
-  
-  # Arrange by the weights within treatments
-  arrange(
-    treated,
-    Type,
-    Weight
-  ) |> 
-  
-  # Indicate the unadjusted weight
-  add_column(NullWeight = 1) |>
-  
-  # Compute the cumulative weight proportions
-  mutate(
-    Weight = cumsum(Weight) / sum(Weight),
-    NullWeight = cumsum(NullWeight) / sum(NullWeight),
-    .by = c(treated, Type)
-  ) |>
-  
-  # Clean up names
-  mutate(
-    Group = 
-      case_when(
-        treated == 1 ~ "Treatment",
-        TRUE ~ "Control"
-      ) |>
-      factor() |>
-      fct_rev(),
-    Type = 
-      case_when(
-        Type == "IPTW_est" ~ "c. IPTW",
-        TRUE ~ "d. OW"
-      ) |>
-      factor() 
-  ) |> 
-  
-  # Make a plot
-  ggplot(
-    aes(
-      x = Weight,
-      y = NullWeight,
+      x = Term,
+      y = Estimate,
       color = Group,
-      linetype = Group
-    )
-  ) + 
-  geom_line(
-    linewidth = 1.25
+      shape = Group
+    ),
+    size = 3
   ) +
-  geom_hline(yintercept = .5, linetype = 3) +
-  geom_vline(xintercept = .5, linetype = 3) +
-  facet_wrap(~Type, nrow = 1) +
-  scale_x_continuous(
-    name = "Cumulative percent of weight (%)",
-    labels = scales::percent
+  geom_linerange(
+    aes(
+      x = Term,
+      ymin = Lower,
+      ymax = Upper,
+      color = Group
+    ),
+    linewidth = 0.75
   ) +
-  scale_y_continuous(
-    name = "Cumulative percent of patients (%)",
-    labels = scales::percent
-  ) +
+  geom_hline(yintercept = 1) +
+  coord_flip() +
   theme(
     panel.background = element_blank(),
-    panel.grid.major.y = element_line(color = "gray"),
+    panel.grid.major.x = element_line(color = "gray"),
     legend.position = "top",
     legend.title = element_blank(),
-    legend.text = element_text(size = 14),
+    legend.text = element_text(size = 12),
     axis.title = element_text(size = 14),
-    axis.text = element_text(size = 12),
-    strip.background = element_blank(),
-    strip.text = element_text(size = 16, face = "bold", hjust = 0)
+    axis.text = element_text(size = 12)
   ) +
   scale_color_manual(
     values = c("#041c3b", "#a19337")
-  )
+  ) +
+  xlab("Confounder") +
+  ylab("OR (95% CI)")
 
-# Combine the plots
-ggpubr::ggarrange(wt_distribution, wt_accumulation, nrow = 2, common.legend = T)
