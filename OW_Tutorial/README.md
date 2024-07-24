@@ -27,3 +27,7 @@ Creates a plot showing the odds ratios for the confounders in the propensity sco
 6. [Weight contributions by strata](figure4.R)
 
 Creates a plot showing the difference in weight shift from the unweighted sample by treatment group by strata of the top six most influential confounders for IPTW-adjusted, and OW-adjusted data.
+
+7. [SMD plot](central_image.R)
+
+Creates a plot showing the standardized mean difference of confounders in the unadjusted, IPTW adjusted and OW adjusted samples.
