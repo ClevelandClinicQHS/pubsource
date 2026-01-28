@@ -2,6 +2,10 @@
 
 An article providing an introduction to the overlap weighting (OW) methodology, a comparison to inverse probability of treatment weighting (IPTW), and some strategies for assessing weighting impact, through an applied example in patient survival.
 
+# Publication
+
+Alexander M Zajichek, Gary L Grunkemeier, [Statistical primer: propensity scores used as overlap weights provide exact covariate balance](https://doi.org/10.1093/ejcts/ezae318), European Journal of Cardio-Thoracic Surgery, 2024;, ezae318, https://doi.org/10.1093/ejcts/ezae318
+
 # Code structure
 
 1. [Generate simulated data set](simulate_dataset.R)
