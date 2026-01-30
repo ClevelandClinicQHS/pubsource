@@ -34,8 +34,8 @@ Uses the raw dataset (`analysis_raw`) and weighted dataset (`analysis_weighted`)
 
 6. [Estimate Survival Curves](06km_curves.R)
 
-Uses the full analytic dataset (`analysis_outcome`) to estimate weighted survival curves using the [Kaplan-Meier](https://en.wikipedia.org/wiki/Kaplan%E2%80%93Meier_estimator) method. Certain formatting options (e.g., location of text labels) were omitted as those were tailored to the actual dataset.
+Uses the full analytic dataset (`analysis_outcome`) to estimate weighted survival curves using the [Kaplan-Meier](https://en.wikipedia.org/wiki/Kaplan%E2%80%93Meier_estimator) method (see [Figure 1](https://www.nature.com/articles/s41591-025-03893-3/figures/1)). Certain formatting options (e.g., location of text labels) were omitted as those were tailored to the actual dataset.
 
 7. [Estimate Hazard Ratios](07hazard_ratios.R)
 
-Uses the full analytic dataset (`analysis_outcome`) to estimate hazard ratios for the treatment effect (bariatric surgery vs. GLP-1) using an adjusted [Cox Proportional-Hazards](https://en.wikipedia.org/wiki/Proportional_hazards_model) model weighted by the overlap weights. Estimates are pooled across imputation datasets using [Rubin's Rules](https://bookdown.org/mwheymans/bookmi/rubins-rules.html).
+Uses the full analytic dataset (`analysis_outcome`) to estimate hazard ratios for the treatment effect (bariatric surgery vs. GLP-1) using an adjusted [Cox Proportional-Hazards](https://en.wikipedia.org/wiki/Proportional_hazards_model) model weighted by the overlap weights (see [Table 2](https://www.nature.com/articles/s41591-025-03893-3/tables/2)). Estimates are pooled across imputation datasets using [Rubin's Rules](https://bookdown.org/mwheymans/bookmi/rubins-rules.html).
