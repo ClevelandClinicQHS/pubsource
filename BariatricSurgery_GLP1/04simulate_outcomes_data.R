@@ -85,3 +85,5 @@ analysis_outcome <-
 # Write to file (current directory)
 #analysis_outcome |> write_rds(file = "data/analysis_outcome.rds")
 #analysis_outcome |> write_csv(file = "data/analysis_outcome.csv")
+#outcomes |> write_rds(file = "data/outcomes.rds")
+#outcomes |> write_csv(file = "data/outcomes.csv")
